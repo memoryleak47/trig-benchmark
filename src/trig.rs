@@ -6,6 +6,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
+mod scheduler;
+
 type EGraph = egg::EGraph<Trig, ConstantFold>;
 type Rewrite = egg::Rewrite<Trig, ConstantFold>;
 
@@ -216,11 +218,19 @@ fn simplify(s: &str) -> (usize, String) {
         })
         .collect();
     let runner = Runner::default()
-        .with_expr(&expr)
-        .with_node_limit(usize::MAX)
-        .with_time_limit(Duration::from_secs(10))
-        .with_iter_limit(usize::MAX)
-        .run(&rules(vars.into_iter()));
+        .with_expr(&expr);
+
+    let limits = scheduler::Limits {
+        node_limit: usize::MAX,
+        time_limit: Duration::from_secs(10),
+    };
+    let cfg = scheduler::CostConfig {
+        cf: |n| 1,
+        offset: 20,
+        unreachable_cost: 10000,
+    };
+    let runner = scheduler::run(runner, &rules(vars.into_iter()), limits, cfg);
+
     let root = runner.roots[0];
     let extractor = Extractor::new(&runner.egraph, AstSize);
     let (best_cost, best) = extractor.find_best(root);

@@ -5,6 +5,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
 
+mod scheduler;
+
 type EGraph = egg::EGraph<Integ, ConstantFold>;
 type Rewrite = egg::Rewrite<Integ, ConstantFold>;
 
@@ -253,17 +255,26 @@ fn simplify(s: &str) -> (usize, String, bool) {
 
     let runner = Runner::default()
         .with_expr(&expr)
-        .with_node_limit(usize::MAX)
-        .with_time_limit(Duration::from_secs(10))
-        .with_iter_limit(usize::MAX)
         .with_hook(move |runner: &mut Runner<Integ, ConstantFold>| {
             if runner.egraph.analysis.unsound {
                 return Err("unsound merge detected".into());
             }
             *snap_ref.borrow_mut() = Some((runner.egraph.clone(), runner.roots[0]));
             Ok(())
-        })
-        .run(&rules());
+        });
+    let limits = scheduler::Limits {
+        node_limit: usize::MAX,
+        time_limit: Duration::from_secs(10),
+    };
+    let cfg = scheduler::CostConfig {
+        cf: |n| match n {
+            Integ::D(_) | Integ::Int(_) => 100,
+            _ => 1,
+        },
+        offset: 20,
+        unreachable_cost: 10000,
+    };
+    let runner = scheduler::run(runner, &rules(), limits, cfg);
 
     let root = runner.roots[0];
     let unsound = runner.egraph.analysis.unsound;
