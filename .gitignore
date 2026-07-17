@@ -1,2 +1,4 @@
 target/
 src/scheduler.rs
+*.csv
+entries.txt
