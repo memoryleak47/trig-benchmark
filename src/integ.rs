@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 mod scheduler;
+mod pruning;
 
 type EGraph = egg::EGraph<Integ, ConstantFold>;
 type Rewrite = egg::Rewrite<Integ, ConstantFold>;
@@ -99,9 +100,11 @@ impl Analysis<Integ> for ConstantFold {
                 let added = egraph.add(Integ::Num(c));
                 egraph.union(id, added);
             }
-            egraph[id].nodes.retain(|n| n.is_leaf());
-            #[cfg(debug_assertions)]
-            egraph[id].assert_unique_leaves();
+            if pruning::PRUNING {
+                egraph[id].nodes.retain(|n| n.is_leaf());
+                #[cfg(debug_assertions)]
+                egraph[id].assert_unique_leaves();
+            }
         }
     }
 }

@@ -7,6 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 mod scheduler;
+mod pruning;
 
 type EGraph = egg::EGraph<Trig, ConstantFold>;
 type Rewrite = egg::Rewrite<Trig, ConstantFold>;
@@ -85,9 +86,11 @@ impl Analysis<Trig> for ConstantFold {
                 let added = egraph.add(Trig::Num(c));
                 egraph.union(id, added);
             }
-            egraph[id].nodes.retain(|n| n.is_leaf());
-            #[cfg(debug_assertions)]
-            egraph[id].assert_unique_leaves();
+            if pruning::PRUNING {
+                egraph[id].nodes.retain(|n| n.is_leaf());
+                #[cfg(debug_assertions)]
+                egraph[id].assert_unique_leaves();
+            }
         }
     }
 }
